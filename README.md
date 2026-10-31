@@ -48,12 +48,9 @@ mkdir -p ~/cybershield
 cd ~/cybershield
 ```
 
-Clone the files:
-
-
-Move all the scripts to 
+Clone the scripts to the current folder:
 ```bash
-unzip /path/to/files.zip
+git clone https://github.com/Kalana-git/CyberShield.git
 ```
 
 #### Step B: Convert line endings to Unix format (LF)
