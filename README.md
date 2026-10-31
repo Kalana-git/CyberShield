@@ -40,21 +40,20 @@ $'\r': command not found
 ```
 
 #### Step A: Move the files to your Linux VM
-You can copy the `CyberShield` folder or `files.zip` to your Linux user's home directory (e.g., `~/cybershield`):
 
-Create cybershield folder:
+**Create cybershield folder:**
 ```bash
 mkdir -p ~/cybershield
 cd ~/cybershield
 ```
 
-Clone the scripts to the current folder:
+**Clone the scripts to the current folder:**
 ```bash
 git clone https://github.com/Kalana-git/CyberShield.git
 ```
 
 #### Step B: Convert line endings to Unix format (LF)
-Run the following in the script directory to strip Windows carriage returns:
+**Run the following in the script directory to strip Windows carriage returns:**
 ```bash
 sed -i 's/\r$//' *.sh
 ```
@@ -67,12 +66,15 @@ sed -i 's/\r$//' *.sh
 Open a terminal on your Linux machine and install the required utilities:
 
 #### On RHEL 9 / Rocky Linux 9 / AlmaLinux 9:
-```bash
-# 1. Enable EPEL (Extra Packages for Enterprise Linux) for shellcheck:
-# (On RHEL 9, install the official EPEL RPM):
-sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm || sudo dnf install -y epel-release || true
 
-# 2. Install required system utilities and shellcheck:
+**Enable EPEL (Extra Packages for Enterprise Linux) for shellcheck:
+(On RHEL 9, install the official EPEL RPM):**
+```bash
+sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm || sudo dnf install -y epel-release || true
+```
+
+**Install required system utilities and shellcheck:**
+```bash
 sudo dnf install -y openssh-clients gnupg2 procps-ng gawk findutils tar gzip \
                     util-linux policycoreutils shadow-utils s-nail shellcheck
 ```
@@ -99,24 +101,31 @@ chmod +x *.sh
 ```
 
 ### Step 3.2: Create system directories and install the scripts
+
+1. Create configuration directory
 ```bash
-# 1. Create configuration directory
 sudo install -d -m 750 /etc/cybershield
+```
 
-# 2. Install scripts into /usr/local/sbin
+2. Install scripts into /usr/local/sbin
+```bash
 sudo install -m 750 -o root -g root backup.sh monitor.sh log_analyzer.sh user_mgmt.sh /usr/local/sbin/
+```
 
-# 3. Create required runtime and log directories
+3. Create required runtime and log directories
+```bash
 sudo mkdir -p -m 750 /var/log/cybershield
 sudo mkdir -p -m 700 /backup/cybershield
 sudo mkdir -p -m 700 /backup/removed_users
 sudo mkdir -p -m 750 /var/data/threat_logs
-
-# 4. If using SELinux (RHEL/Rocky), apply default labels
+```
+4. If using SELinux (RHEL/Rocky), apply default labels
+```bash
 sudo restorecon -v /usr/local/sbin/*.sh 2>/dev/null || true
 sudo restorecon -Rv /var/log/cybershield /backup /var/data 2>/dev/null || true
-
-# 5. Allow non-root users to query account status (needed by "list")
+```
+5. Allow non-root users to query account status (needed by "list")
+```bash
 echo 'ALL ALL=(root) NOPASSWD: /usr/bin/passwd -S *' | sudo tee /etc/sudoers.d/cybershield-list > /dev/null
 
 sudo chmod 440 /etc/sudoers.d/cybershield-list
@@ -131,57 +140,18 @@ $$\text{CLI Flags} > \text{Environment Variables} > \text{/etc/cybershield/cyber
 
 ### Step 4.1: Generate the Backup Encryption Passphrase
 The backup script (`backup.sh`) uses symmetric AES-256 encryption. It requires a private passphrase file owned by root with permissions `600` (read/write only by root):
-```bash
-# Generate a random 32-byte base64 passphrase
-head -c 32 /dev/urandom | base64 | sudo tee /etc/cybershield/backup.pass > /dev/null
 
-# Enforce strict private permissions (exit code 3 if too open!)
+Generate a random 32-byte base64 passphrase:
+```bash
+head -c 32 /dev/urandom | base64 | sudo tee /etc/cybershield/backup.pass > /dev/null
+```
+
+Enforce strict private permissions (exit code 3 if too open!):
+```bash
 sudo chmod 600 /etc/cybershield/backup.pass
 ```
 
 ### Step 4.2: Create the Central Configuration File
-Create `/etc/cybershield/cybershield.conf`:
-```bash
-sudo tee /etc/cybershield/cybershield.conf > /dev/null << 'EOF'
-# /etc/cybershield/cybershield.conf
-# Central Configuration for CyberShield Automation Suite
-
-# ==================== backup.sh Settings ====================
-DB_HOST=192.168.2.10
-TAS_HOST=192.168.2.20
-SSH_USER=backup
-DB_NAME=cybershield
-BACKUP_DIR=/backup/cybershield
-KEEP_DAYS=30
-MIN_FREE_MB=1024
-ENCRYPT=yes
-GPG_PASS_FILE=/etc/cybershield/backup.pass
-
-# ==================== monitor.sh Settings ====================
-CPU_LIMIT=85
-MEM_LIMIT=90
-DISK_LIMIT=80
-LOAD_FACTOR=1
-CHECK_SELINUX=yes
-COOLDOWN_MIN=60
-
-# ==================== log_analyzer.sh Settings ====================
-SSH_LIMIT=5
-ERROR_LIMIT=100
-WINDOW_MIN=60
-REPORT_DIR=/var/log/cybershield/reports
-REPORT_KEEP_DAYS=30
-
-# ==================== user_mgmt.sh Settings ====================
-ALLOWED_BASES="/var/data /srv /opt/cybershield /home"
-CRITICAL_DIR=/var/data/threat_logs
-ARCHIVE_DIR=/backup/removed_users
-ANALYST_GROUP=cs_analysts
-STAFF_GROUP=cs_staff
-PASSWORD_MAX_DAYS=90
-MIN_UID=1000
-EOF
-```
 
 Create `/etc/cybershield/backup.conf`
 ```bash
@@ -246,6 +216,8 @@ EOF
 The scripts actively verify that the configuration file is root-owned and cannot be edited by others:
 ```bash
 sudo chown root:root /etc/cybershield/cybershield.conf
+```
+```bash
 sudo chmod 640 /etc/cybershield/cybershield.conf
 ```
 
@@ -295,12 +267,17 @@ alice              1001   active   alice,cs_analysts
 #### Action 3: Set Least-Privilege Directory Permissions (`perms <username> <directory>`)
 Changes directory ownership to the user, sets directories to `750` (`rwxr-x---`) and files to `640` (`rw-r-----`), and strips all permissions for "others".
 *(Must be within `ALLOWED_BASES`)*:
-```bash
-# Prepare a directory
-sudo mkdir -p /var/data/threat_logs
-sudo touch /var/data/threat_logs/analysis_report.txt
 
-# Apply permissions
+Prepare a directory:
+```bash
+sudo mkdir -p /var/data/threat_logs
+```
+```bash
+sudo touch /var/data/threat_logs/analysis_report.txt
+```
+
+Apply permissions:
+```bash
 sudo user_mgmt.sh perms alice /var/data/threat_logs
 ```
 **Sample Output:**
@@ -310,14 +287,19 @@ sudo user_mgmt.sh perms alice /var/data/threat_logs
 
 #### Action 4: Lock and Unlock an Account (`lock` / `unlock`)
 Disables an account immediately:
+
+Lock the account:
 ```bash
-# Lock the account
 sudo user_mgmt.sh lock alice
+```
 
-# Verify it shows locked
+Verify it shows locked:
+```bash
 user_mgmt.sh list
+```
 
-# Unlock the account
+Unlock the account:
+```bash
 sudo user_mgmt.sh unlock alice
 ```
 
@@ -395,8 +377,9 @@ timestamp,cpu_pct,mem_pct,disk_max_pct,disk_max_mount,load1,alerts
 
 #### Test Alerting (Breaching a Threshold)
 To test how `monitor.sh` handles an alert, override the threshold on the command line:
+
+Set CPU threshold to 1% to trigger an alert
 ```bash
-# Set CPU threshold to 1% to trigger an alert
 sudo CPU_LIMIT=1 monitor.sh
 ```
 **Sample Output:**
@@ -448,13 +431,16 @@ sudo log_analyzer.sh --journal
 
 #### Simulating an Attack and Triggering an Alert
 You can simulate brute-force attacks by injecting mock failed login entries into a test log or system log:
+
+*Inject 6 failed attempts from a simulated attacker IP*
 ```bash
-# Inject 6 failed attempts from a simulated attacker IP
 for i in {1..6}; do
     sudo logger -t sshd -p authpriv.info "Failed password for invalid user admin from 203.0.113.50 port 44212 ssh2"
 done
+```
 
-# Run the analyzer
+*Run the analyzer*
+```bash
 sudo log_analyzer.sh
 ```
 **Sample Output:**
@@ -480,15 +466,18 @@ Pulls remote data, encrypts it on-the-fly with AES-256 GPG, verifies checksums, 
 
 #### 1. Prepare the VM for Local Backup Testing (One-Time Setup)
 Before running `backup.sh`, set up SSH to localhost and create a sample data source:
+
+*1a. Generate an SSH key for root, authorise it for localhost, and trust the host key*
 ```bash
-# 1a. Generate an SSH key for root, authorise it for localhost, and trust the host key
 sudo ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N "" 2>/dev/null || true
 sudo cat /root/.ssh/id_ed25519.pub | sudo tee -a /root/.ssh/authorized_keys > /dev/null
 sudo chmod 600 /root/.ssh/authorized_keys
 sudo ssh-keyscan -H 127.0.0.1 | sudo tee -a /root/.ssh/known_hosts > /dev/null
 sudo chmod 644 /root/.ssh/known_hosts
+```
 
-# 1b. Create a dummy threat-analysis log directory
+*1b. Create a dummy threat-analysis log directory*
+```bash
 sudo mkdir -p /var/log/threat-analysis
 echo "Threat event detected" | sudo tee /var/log/threat-analysis/sample.log > /dev/null
 ```
@@ -538,9 +527,10 @@ sudo backup.sh --verify /backup/cybershield/tas_logs_*.tar.gz.gpg
 #### 5. How to Restore from Backup
 Backups are encrypted using AES-256 symmetric GPG encryption. Because the passphrase file and backup directory are restricted to `root` (mode 600/700), you must run the restore command with `sudo`:
 
+
+*Decrypt and list contents of the archive (replace <name >with your actual filename).
+Something like tas_logs_20261031_003101.tar.gz.gpg*
 ```bash
-# Decrypt and list contents of the archive (replace <name >with your actual filename)
-# Something like tas_logs_20261031_003101.tar.gz.gpg
 sudo gpg --batch --pinentry-mode loopback --passphrase-file /etc/cybershield/backup.pass \
     -d /backup/cybershield/<name> | tar -ztvf -
 ```
@@ -548,9 +538,10 @@ sudo gpg --batch --pinentry-mode loopback --passphrase-file /etc/cybershield/bac
 To actually extract the files into a destination directory (e.g. `/tmp/restore`):
 ```bash
 sudo mkdir -p /tmp/restore
+```
 
-# Replace <name> with your actual file name
-# Something like tas_logs_20261031_003101.tar.gz.gpg
+*Replace <name> with your actual file name. Something like tas_logs_20261031_003101.tar.gz.gpg*
+```bash
 sudo gpg --batch --pinentry-mode loopback --passphrase-file /etc/cybershield/backup.pass \
     -d /backup/cybershield/tas_logs_<name>.tar.gz.gpg | sudo tar -zxvf - -C /tmp/restore
 ```
