@@ -21,44 +21,23 @@ CyberShield Solutions is a modular enterprise Linux automation suite developed f
 ## 2. Prerequisites & Environment Setup
 
 ### 2.1 Supported Environments
-The scripts are designed for Linux. You can run them in:
-1. **A Linux Virtual Machine (Recommended):** Red Hat Enterprise Linux 9, Rocky Linux 9, AlmaLinux 9 running in Oracle VirtualBox or VMware Workstation.
-2. **A Native Linux Installation or Cloud VPS.**
-3. **Windows Subsystem for Linux (WSL2)** (Ubuntu / Debian).
+The scripts are designed for Linux. You can run them in **A Linux Virtual Machine (Recommended):** Red Hat Enterprise Linux 9, Rocky Linux 9, AlmaLinux 9 running in Oracle VirtualBox or VMware Workstation.
 
 ---
 
 ### 2.2 Transferring Files & Fixing Line Endings (CRITICAL)
 
-If you downloaded or edited the scripts on Windows, Windows uses Carriage Return + Line Feed (`\r\n` or CRLF) line endings, whereas Linux requires Line Feed (`\n` or LF). Running scripts with Windows line endings in Linux causes errors like:
-```bash
-/usr/bin/bash^M: bad interpreter: No such file or directory
-```
-or
-```bash
-$'\r': command not found
-```
-
-#### Step A: Move the files to your Linux VM
-
-**Create cybershield folder:**
-```bash
-mkdir -p ~/cybershield
-cd ~/cybershield
-```
+#### Move the files to your Linux VM
 
 **Clone the scripts to the current folder:**
 ```bash
 git clone https://github.com/Kalana-git/CyberShield.git
 ```
 
-#### Step B: Convert line endings to Unix format (LF)
-**Run the following in the script directory to strip Windows carriage returns:**
+**Move the folder to user's home dir**
 ```bash
-sed -i 's/\r$//' *.sh
+mv CyberShield ~/
 ```
-*(Or install `dos2unix` via `sudo dnf install dos2unix` or `sudo apt install dos2unix` and run `dos2unix *.sh`)*.
-
 ---
 
 ### 2.3 Installing Required Packages
@@ -76,27 +55,20 @@ sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.
 **Install required system utilities and shellcheck:**
 ```bash
 sudo dnf install -y openssh-clients gnupg2 procps-ng gawk findutils tar gzip \
-                    util-linux policycoreutils shadow-utils s-nail shellcheck
+util-linux policycoreutils shadow-utils s-nail shellcheck
 ```
 *Note: `s-nail` provides the `mail` command for email alerting; `shellcheck` is used by the test suite.*
-
-#### On Ubuntu 24.04:
-```bash
-sudo apt update
-sudo apt install -y openssh-client gnupg procps gawk findutils tar gzip \
-                    util-linux mailutils shellcheck
-```
 
 ---
 
 ## 3. Installation Step-by-Step
 
-All administrative scripts are designed to live in `/usr/local/sbin`, root-owned with mode `750` (read, write, execute for root; read and execute for group; none for others).
+All administrative scripts are designed to live in `/usr/local/sbin`, root-owned with mode `755` (read, write and execute for root; read and execute for group; read and execute for others).
 
 ### Step 3.1: Make scripts executable
 Navigate to the directory containing the scripts:
 ```bash
-cd ~/cybershield
+cd ~/CyberShield
 chmod +x *.sh
 ```
 
@@ -109,7 +81,7 @@ sudo install -d -m 750 /etc/cybershield
 
 2. Install scripts into /usr/local/sbin
 ```bash
-sudo install -m 750 -o root -g root backup.sh monitor.sh log_analyzer.sh user_mgmt.sh /usr/local/sbin/
+sudo install -m 755 -o root -g root backup.sh monitor.sh log_analyzer.sh user_mgmt.sh /usr/local/sbin/
 ```
 
 3. Create required runtime and log directories
@@ -151,11 +123,11 @@ Enforce strict private permissions (exit code 3 if too open!):
 sudo chmod 600 /etc/cybershield/backup.pass
 ```
 
-### Step 4.2: Create the Central Configuration File
+### Step 4.2: Create the Central Configuration Files
 
 Create `/etc/cybershield/backup.conf`
 ```bash
-sudo tee /etc/cybershield/cybershield.conf > /dev/null << 'EOF'
+sudo tee /etc/cybershield/backup.conf > /dev/null << 'EOF'
 # /etc/cybershield/backup.conf
 # backup.sh settings
 DB_HOST=192.168.2.10
@@ -172,7 +144,7 @@ EOF
 
 Create `/etc/cybershield/monitor.conf`
 ```bash
-sudo tee /etc/cybershield/cybershield.conf > /dev/null << 'EOF'
+sudo tee /etc/cybershield/monitor.conf > /dev/null << 'EOF'
 # /etc/cybershield/monitor.conf
 # monitor.sh settings
 CPU_LIMIT=85
@@ -186,7 +158,7 @@ EOF
 
 Create `/etc/cybershield/log_analyzer.conf`
 ```bash
-sudo tee /etc/cybershield/cybershield.conf > /dev/null << 'EOF'
+sudo tee /etc/cybershield/log_analyzer.conf > /dev/null << 'EOF'
 # /etc/cybershield/log_analyzer.conf
 # log_analyzer.sh settings
 SSH_LIMIT=5
@@ -199,7 +171,7 @@ EOF
 
 Create `/etc/cybershield/user_mgmt.conf`
 ```bash
-sudo tee /etc/cybershield/cybershield.conf > /dev/null << 'EOF'
+sudo tee /etc/cybershield/user_mgmt.conf > /dev/null << 'EOF'
 # /etc/cybershield/user_mgmt.conf
 # user_mgmt.sh settings
 ALLOWED_BASES="/var/data /srv /opt/cybershield /home"
@@ -215,7 +187,7 @@ EOF
 ### Step 4.3: Secure the Configuration File
 The scripts actively verify that the configuration file is root-owned and cannot be edited by others:
 ```bash
-sudo chown root:root /etc/cybershield/cybershield.conf
+sudo chown root:root /etc/cybershield/backup.conf /etc/cybershield/monitor.conf /etc/cybershield/log_analyzer.conf /etc/cybershield/user_mgmt.conf
 ```
 ```bash
 sudo chmod 640 /etc/cybershield/cybershield.conf
@@ -240,16 +212,35 @@ Roles available: `admin`, `analyst`, or `staff`.
 - Generates a 16-character temporary password and forces a password change upon first login.
 
 ```bash
-sudo user_mgmt.sh add alice analyst
+sudo user_mgmt.sh add jayantha analyst
 ```
 
-In case the command didn't work just go through [Jump to Troubleshooting & FAQ](#9-troubleshooting--faq)
+If you get an error message while running the above command and it looks like:
+```
+sudo: user_mgmt.sh: command not found
+```
 
+Do the following...
+
+Run:
+```bash
+sudo visudo
+```
+
+Find the line which says:
+```
+Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin
+```
+
+Replace it with:
+```
+Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin
+```
 
 **Sample Output:**
 ```
-[INFO] user_mgmt.sh: Created user alice (role analyst, group cs_analysts)
-Temporary password: dK3f9#zL1xQv8@pM   (must be changed at first login)
+2026-10-31 20:31:10 [INFO] user_mgmt.sh: Created user jayantha (role analyst, group cs_analysts)
+Temporary password: 4/Lfw6Lf8kkx0ASx   (must be changed at first login)
 ```
 
 #### Action 2: List Normal Users (`list`)
@@ -261,7 +252,8 @@ user_mgmt.sh list
 ```
 Normal users (UID 1000 and above):
 USER               UID    STATE    GROUPS
-alice              1001   active   alice,cs_analysts
+kaliya             1000   active   kaliya,wheel
+jayantha           1001   active   jayantha,cs_analysts
 ```
 
 #### Action 3: Set Least-Privilege Directory Permissions (`perms <username> <directory>`)
@@ -272,17 +264,19 @@ Prepare a directory:
 ```bash
 sudo mkdir -p /var/data/threat_logs
 ```
+
 ```bash
-sudo touch /var/data/threat_logs/analysis_report.txt
+sudo sh -c 'echo "Jayantha said oya innako mn ilaga paara hodata karala pennannan!" > /var/data/threat_logs/analysis_report.txt'
 ```
 
 Apply permissions:
 ```bash
-sudo user_mgmt.sh perms alice /var/data/threat_logs
+sudo user_mgmt.sh perms jayantha /var/data/threat_logs
 ```
+
 **Sample Output:**
 ```
-[INFO] user_mgmt.sh: Set owner alice and mode 750/640 on /var/data/threat_logs
+2026-10-31 20:38:44 [INFO] user_mgmt.sh: Set owner jayantha and mode 750/640 on /var/data/threat_logs
 ```
 
 #### Action 4: Lock and Unlock an Account (`lock` / `unlock`)
@@ -290,7 +284,12 @@ Disables an account immediately:
 
 Lock the account:
 ```bash
-sudo user_mgmt.sh lock alice
+sudo user_mgmt.sh lock jayantha
+```
+
+**Sample Output:**
+```
+2026-10-31 20:40:13 [INFO] user_mgmt.sh: Locked user jayantha
 ```
 
 Verify it shows locked:
@@ -298,9 +297,22 @@ Verify it shows locked:
 user_mgmt.sh list
 ```
 
+**Sample Output:**
+```
+Normal users (UID 1000 and above):
+USER               UID    STATE    GROUPS
+kaliya             1000   active   kaliya,wheel
+jayantha           1001   locked   jayantha,cs_analysts
+```
+
 Unlock the account:
 ```bash
-sudo user_mgmt.sh unlock alice
+sudo user_mgmt.sh unlock jayantha
+```
+
+**Sample Output:**
+```
+2026-10-31 20:48:14 [INFO] user_mgmt.sh: Unlocked user jayantha
 ```
 
 #### Action 5: Run the Security Audit (`audit`)
@@ -318,26 +330,26 @@ sudo user_mgmt.sh audit
 === 1. Normal accounts ===
 Normal users (UID 1000 and above):
 USER               UID    STATE    GROUPS
-alice              1001   active   alice,cs_analysts
+kaliya             1000   active   kaliya,wheel
+jayantha           1001   active   jayantha,cs_analysts
 === 2. Members of the administrator group (wheel) ===
-  adminuser
+  kaliya
 === 3. Extra UID 0 accounts ===
 === 4. Accounts without a password ===
 === 5. Critical directory: /var/data/threat_logs ===
-  mode=750 owner=alice:alice
-[INFO] user_mgmt.sh: Audit finished: no findings
+  mode=750 owner=jayantha:jayantha
+2026-10-31 20:56:57 [INFO] user_mgmt.sh: Audit finished: no findings
 ```
 *(If a vulnerability is found, it logs a warning and exits with code 5).*
 
 #### Action 6: Remove a User with Archive (`remove <username>`)
 Before removing the account from the OS, the user's home folder is archived into `/backup/removed_users/username_TIMESTAMP.tar.gz` (mode `600`).
 ```bash
-sudo user_mgmt.sh remove alice -y
+sudo user_mgmt.sh remove jayantha -y
 ```
 **Sample Output:**
 ```
-[INFO] user_mgmt.sh: Archived /home/alice to /backup/removed_users/alice_20261029_160000.tar.gz (mode 600)
-[INFO] user_mgmt.sh: Deleted user alice
+2026-10-31 19:41:36 [INFO] user_mgmt.sh: Removed user jayantha (home archived in /backup/removed_users/jayantha_20261031_194136.tar.gz)
 ```
 
 ---
@@ -353,26 +365,36 @@ sudo monitor.sh
 ```
 **Sample Output:**
 ```
-[INFO] monitor.sh: CPU used: 4%
-[INFO] monitor.sh: Memory used: 38%
-[INFO] monitor.sh: Disk / used: 32%
-[INFO] monitor.sh: Load average: 0.12 (CPU cores: 2, factor: 1)
-[INFO] monitor.sh: SELinux mode: Enforcing
-[INFO] monitor.sh: Service sshd: running
-[INFO] monitor.sh: Service crond: running
-[INFO] monitor.sh: Service firewalld: running
-[INFO] monitor.sh: All checks passed
+2026-10-31 20:58:55 [INFO] monitor.sh: CPU used: 26%
+2026-10-31 20:58:55 [INFO] monitor.sh: Memory used: 62%
+2026-10-31 20:58:55 [INFO] monitor.sh: Disk / used: 17%
+2026-10-31 20:58:55 [INFO] monitor.sh: Disk /boot used: 29%
+2026-10-31 20:58:55 [INFO] monitor.sh: Load average: 0.19 (CPU cores: 2, factor: 1)
+2026-10-31 20:58:55 [INFO] monitor.sh: SELinux mode: Enforcing
+2026-10-31 20:58:55 [INFO] monitor.sh: Service sshd: running
+2026-10-31 20:58:55 [INFO] monitor.sh: Service firewalld: running
+2026-10-31 20:58:55 [INFO] monitor.sh: Service chronyd: running
+2026-10-31 20:58:55 [INFO] monitor.sh: Service crond: running
+2026-10-31 20:58:55 [INFO] monitor.sh: Service rsyslog: running
+2026-10-31 20:58:55 [INFO] monitor.sh: Service auditd: running
+2026-10-31 20:58:55 [INFO] monitor.sh: All checks passed
 ```
 
 #### Inspect Historical CSV Metrics
 Every run appends a comma-separated record to `/var/log/cybershield/metrics.csv` for reporting and graphing:
 ```bash
-cat /var/log/cybershield/metrics.csv
+sudo cat /var/log/cybershield/metrics.csv
 ```
 **Format:**
 ```
 timestamp,cpu_pct,mem_pct,disk_max_pct,disk_max_mount,load1,alerts
-2026-10-29 16:05:01,4,38,32,/,0.12,0
+2026-10-31T19:42:33,24,61,29,"/boot",0.30,0
+2026-10-31T19:47:16,13,60,29,"/boot",0.13,0
+2026-10-31T19:48:54,18,60,29,"/boot",0.16,1
+2026-10-31T19:49:47,14,60,29,"/boot",0.06,0
+2026-10-31T19:50:04,17,60,29,"/boot",0.20,1
+2026-10-31T20:00:23,4,61,29,"/boot",0.33,0
+2026-10-31T20:58:55,26,62,29,"/boot",0.19,0
 ```
 
 #### Test Alerting (Breaching a Threshold)
@@ -384,18 +406,34 @@ sudo CPU_LIMIT=1 monitor.sh
 ```
 **Sample Output:**
 ```
-[ALERT] monitor.sh: CPU usage 4% exceeds threshold 1%
-...
+2026-10-31 21:01:56 [INFO] monitor.sh: CPU used: 20%
+2026-10-31 21:01:56 [ALERT] monitor.sh: CPU usage is 20% (limit 1%)
+2026-10-31 21:01:56 [INFO] monitor.sh: Memory used: 62%
+2026-10-31 21:01:56 [INFO] monitor.sh: Disk / used: 17%
+2026-10-31 21:01:56 [INFO] monitor.sh: Disk /boot used: 29%
+2026-10-31 21:01:56 [INFO] monitor.sh: Load average: 0.15 (CPU cores: 2, factor: 1)
+2026-10-31 21:01:56 [INFO] monitor.sh: SELinux mode: Enforcing
+2026-10-31 21:01:56 [INFO] monitor.sh: Service sshd: running
+2026-10-31 21:01:56 [INFO] monitor.sh: Service firewalld: running
+2026-10-31 21:01:56 [INFO] monitor.sh: Service chronyd: running
+2026-10-31 21:01:56 [INFO] monitor.sh: Service crond: running
+2026-10-31 21:01:56 [INFO] monitor.sh: Service rsyslog: running
+2026-10-31 21:01:56 [INFO] monitor.sh: Service auditd: running
+2026-10-31 21:01:56 [WARN] monitor.sh: 1 alert(s) raised
 ```
+
 *(The script exits with code `5` when an alert is raised).*
 
 #### Quiet Mode (Used by Cron)
 Suppresses regular output and only prints when an alert or error occurs:
 ```bash
-sudo monitor.sh -q
+sudo CPU_LIMIT=1 monitor.sh -q
 ```
-
----
+**Sample Output:**
+```
+2026-10-31 21:03:07 [ALERT] monitor.sh: CPU usage is 11% (limit 1%)
+2026-10-31 21:03:07 [WARN] monitor.sh: 1 alert(s) raised
+```
 
 ### 5.3 Security Log File Analyzer (`log_analyzer.sh`)
 
@@ -434,7 +472,7 @@ You can simulate brute-force attacks by injecting mock failed login entries into
 
 *Inject 6 failed attempts from a simulated attacker IP*
 ```bash
-for i in {1..6}; do
+for i in {1..3}; do
     sudo logger -t sshd -p authpriv.info "Failed password for invalid user admin from 203.0.113.50 port 44212 ssh2"
 done
 ```
@@ -489,12 +527,13 @@ sudo DB_HOST=127.0.0.1 TAS_HOST=127.0.0.1 SSH_USER=root DB_NAME="" backup.sh --d
 ```
 **Sample Output:**
 ```
-[INFO] backup.sh: ===== Backup started (encrypt=yes, dry-run=1) =====
-[INFO] backup.sh: DB_NAME is empty: database backup skipped
-[INFO] backup.sh: Backing up logs from 127.0.0.1
-[INFO] backup.sh: DRY-RUN: would archive /var/log/threat-analysis over SSH, encrypt to /backup/cybershield/tas_logs_TIMESTAMP.tar.gz.gpg and write SHA-256 checksum
-[INFO] backup.sh: Retention: 0 file(s) older than 30 days
-[INFO] backup.sh: ===== Backup finished =====
+2026-10-31 21:14:31 [INFO] backup.sh: Free space in /backup/cybershield: 37515 MB (minimum 1024 MB)
+2026-10-31 21:14:31 [INFO] backup.sh: ===== Backup started (encrypt=yes, dry-run=1) =====
+2026-10-31 21:14:31 [INFO] backup.sh: DB_NAME is empty: database backup skipped
+2026-10-31 21:14:31 [INFO] backup.sh: Backing up logs from 127.0.0.1
+2026-10-31 21:14:31 [INFO] backup.sh: DRY-RUN: would create /backup/cybershield/tas_logs_20261031_211431.tar.gz.gpg
+2026-10-31 21:14:31 [INFO] backup.sh: Retention: 0 file(s) older than 30 days
+2026-10-31 21:14:31 [INFO] backup.sh: ===== Backup finished =====
 ```
 
 #### 3. Run a Full Local Backup
@@ -504,24 +543,24 @@ sudo DB_HOST=127.0.0.1 TAS_HOST=127.0.0.1 SSH_USER=root DB_NAME="" backup.sh
 ```
 **Sample Output:**
 ```
-[INFO] backup.sh: ===== Backup started (encrypt=yes, dry-run=0) =====
-[INFO] backup.sh: DB_NAME is empty: database backup skipped
-[INFO] backup.sh: Backing up logs from 127.0.0.1
-[INFO] backup.sh: Backup OK: /backup/cybershield/tas_logs_20261029_163000.tar.gz.gpg (1.2K)
-[INFO] backup.sh: Retention: 0 file(s) older than 30 days
-[INFO] backup.sh: ===== Backup finished =====
+2026-10-31 21:15:53 [INFO] backup.sh: Free space in /backup/cybershield: 37514 MB (minimum 1024 MB)
+2026-10-31 21:15:53 [INFO] backup.sh: ===== Backup started (encrypt=yes, dry-run=0) =====
+2026-10-31 21:15:53 [INFO] backup.sh: DB_NAME is empty: database backup skipped
+2026-10-31 21:15:53 [INFO] backup.sh: Backing up logs from 127.0.0.1
+2026-10-31 21:15:53 [INFO] backup.sh: Backup OK: /backup/cybershield/tas_logs_20261031_211553.tar.gz.gpg (4.0K)
+2026-10-31 21:15:53 [INFO] backup.sh: Retention: 0 file(s) older than 30 days
+2026-10-31 21:15:53 [INFO] backup.sh: ===== Backup finished =====
 ```
 
 #### 4. Verifying Backup Integrity (`--verify`)
-The script includes an automated cryptographic and archive integrity verification option (pass your actual generated backup file):
+The script includes an automated cryptographic and archive integrity verification option. Pass your actual generated backup file something like "":
 ```bash
-sudo backup.sh --verify /backup/cybershield/tas_logs_*.tar.gz.gpg
+sudo backup.sh --verify /backup/cybershield/<name>
 ```
 **Sample Output:**
 ```
-[INFO] backup.sh: Verifying /backup/cybershield/tas_logs_20261029_163000.tar.gz.gpg
-[INFO] backup.sh: Checksum OK: SHA-256 matches
-[INFO] backup.sh: Content OK: archive decrypted and checked successfully
+2026-10-31 21:20:14 [INFO] backup.sh: Checksum OK: tas_logs_20261031_211553.tar.gz.gpg
+2026-10-31 21:20:14 [INFO] backup.sh: Content OK: tas_logs_20261031_211553.tar.gz.gpg decrypts and decompresses
 ```
 
 #### 5. How to Restore from Backup
@@ -532,7 +571,15 @@ Backups are encrypted using AES-256 symmetric GPG encryption. Because the passph
 Something like tas_logs_20261031_003101.tar.gz.gpg*
 ```bash
 sudo gpg --batch --pinentry-mode loopback --passphrase-file /etc/cybershield/backup.pass \
-    -d /backup/cybershield/<name> | tar -ztvf -
+-d /backup/cybershield/<name> | tar -ztvf -
+```
+
+**Sample Output:**
+```
+gpg: AES256.CFB encrypted data
+gpg: encrypted with 1 passphrase
+drwxr-xr-x root/root         0 2026-10-31 21:14 threat-analysis/
+-rw-r--r-- root/root        22 2026-10-31 21:14 threat-analysis/sample.log
 ```
 
 To actually extract the files into a destination directory (e.g. `/tmp/restore`):
@@ -543,7 +590,15 @@ sudo mkdir -p /tmp/restore
 *Replace <name> with your actual file name. Something like tas_logs_20261031_003101.tar.gz.gpg*
 ```bash
 sudo gpg --batch --pinentry-mode loopback --passphrase-file /etc/cybershield/backup.pass \
-    -d /backup/cybershield/tas_logs_<name>.tar.gz.gpg | sudo tar -zxvf - -C /tmp/restore
+-d /backup/cybershield/<name> | sudo tar -zxvf - -C /tmp/restore
+```
+
+**Sample Output:**
+```
+gpg: AES256.CFB encrypted data
+gpg: encrypted with 1 passphrase
+threat-analysis/
+threat-analysis/sample.log
 ```
 
 ---
@@ -555,7 +610,7 @@ The automated test suite tests **all 203 test cases** across script syntax, Shel
 ### How to Run the Suite
 Execute `run_tests.sh` as root, passing the path to the scripts:
 ```bash
-cd ~/cybershield
+cd ~/CyberShield
 sudo ./run_tests.sh .
 ```
 
